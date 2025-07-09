@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Jarvis - Voice Assistant</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='Style.css') }}">
+
+</head>
+<body>
+    <div class="container">
+        <h1>🎙️ Welcome to Voice Assistant</h1>
+        <p>Speak something and I will respond</p>
+        <img src="{{ url_for('static', filename='images.jpeg') }}" alt="Jarvis AI">
+        
+        <form method="post">
+            <button type="submit">🎤 Speak Now</button>
+        </form>
+        
+        {% if sptext %}
+        <div class="output">
+            <p><strong>You said:</strong> {{ sptext }}</p>
+        </div>
+        
+        {% if response %}
+        <div class="output">
+            <p><strong>Asistant says:</strong> {{ response }}</p>
+        </div>
+        {% endif %}
+        {% endif %}
+
+    </div>
+</body>
+</html>
