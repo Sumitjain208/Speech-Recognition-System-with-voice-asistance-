@@ -1,2 +1,15 @@
-# Speech-Recognition-System-with-voice-asistance-
-This project is a Python-based Voice Assistant that uses Speech Recognition and Text-to-Speech (TTS) technologies to interact with users via voice. The assistant listens to the user's voice commands, processes them, and responds either with actions or spoken replies — just like a mini version of JARVIS!
+﻿# SpeechToText
+
+A Python application for converting speech to text.
+
+## Requirements
+- Python 3.x
+- Required packages (list them here)
+
+## Setup
+1. Clone the repository
+2. Install dependencies
+3. Run the script
+
+## Usage
+Describe how to use your application here
