@@ -1,0 +1,186 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Voice Assistant — Speech Recognition</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <main class="page">
+    <header class="hero">
+      <div class="brand">
+        <svg class="logo" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 3c2 0 4 1 5 3 1 1 1 3 1 4v4c0 2-1 4-3 5-1 1-3 1-5 1s-4 0-5-1c-2-1-3-3-3-5V10c0-1 0-3 1-4 1-2 3-3 5-3z"/></svg>
+        <h1>Voice Assistant</h1>
+      </div>
+      <p class="tagline">Speak naturally. Get actions and spoken responses.</p>
+    </header>
+
+    <section class="control">
+      <div class="left">
+        <img alt="Voice assistant illustration"
+             src="{{ url_for('static', filename='images.jpeg') }}"
+             class="illustration" />
+      </div>
+
+      <!-- Right column: always present so JS can find elements -->
+      <div class="right">
+        <div class="card">
+          <div class="status-row">
+            <button id="startBtn" class="btn primary" aria-pressed="false">🎤 Start Listening</button>
+            <button id="stopBtn" class="btn" disabled>⏹ Stop</button>
+            <div id="micLevel" class="mic-level" aria-hidden="true"></div>
+          </div>
+
+          <div class="live">
+            <label for="transcript"><strong>Transcript (live):</strong></label>
+            <!-- use default filter so template works even if variable not passed -->
+            <textarea id="transcript" readonly rows="4" placeholder="Recognized text will appear here...">{{ sptext|default('') }}</textarea>
+          </div>
+
+          <div class="actions">
+            <button id="sendServer" class="btn secondary">Send to Server</button>
+            <button id="clear" class="btn">Clear</button>
+          </div>
+
+          <div class="output">
+            <label><strong>Assistant Response:</strong></label>
+            <div id="response" class="response-box">{{ response|default('No response yet.') }}</div>
+          </div>
+
+          <!-- Hidden form for compatibility with prior server POST approach (optional) -->
+          <form id="serverForm" method="post" action="/" style="display:none;">
+            <input type="hidden" name="sptext" value="{{ sptext|default('') }}">
+          </form>
+        </div>
+
+        <div class="notes">
+          <p>Email_ID:sumjain0604@gmail.com</p>
+          <p href="www.linkedin.com/in/sumit-jain-01753a2b3">Sumitjain-Linkdin-Id.com</p>
+        </div>
+      </div>
+    </section>
+
+    <footer class="footer">
+      <small>© 2025 Sumit Jain — VoiceAssist · <a href="https://github.com/Sumitjain208/Speech-Recognition-System-with-voice-asistance-" target="_blank" rel="noopener">GitHub</a></small>
+    </footer>
+  </main>
+
+  <script>
+  // ---------- Feature detection ----------
+  const startBtn = document.getElementById('startBtn');
+  const stopBtn  = document.getElementById('stopBtn');
+  const transcriptEl = document.getElementById('transcript');
+  const responseEl = document.getElementById('response');
+  const sendServerBtn = document.getElementById('sendServer');
+  const clearBtn = document.getElementById('clear');
+  const micLevel = document.getElementById('micLevel');
+
+  // Safety: ensure elements exist (in case CSS/layout changes)
+  function safeEl(el, fallback = null){ return el || fallback; }
+
+  // Check for Web Speech API
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition || null;
+  let recognizer = null;
+  if (SpeechRecognition) {
+    recognizer = new SpeechRecognition();
+    recognizer.lang = 'en-US';
+    recognizer.interimResults = true;
+    recognizer.maxAlternatives = 3;
+  } else {
+    // Update label to indicate server fallback
+    startBtn.textContent = '🎤 Use Server';
+  }
+
+  // Helper: toggle UI
+  function setListening(on){
+    startBtn.disabled = on;
+    stopBtn.disabled  = !on;
+    startBtn.setAttribute('aria-pressed', on ? 'true' : 'false');
+  }
+
+  // Client-side recognition (Web Speech API)
+  if (recognizer) {
+    recognizer.onstart = () => { setListening(true); micLevel.classList.add('active'); responseEl.textContent = 'Listening (client-side)...'; }
+    recognizer.onend = () => { setListening(false); micLevel.classList.remove('active'); if (!transcriptEl.value) responseEl.textContent = 'Stopped.'; }
+    recognizer.onerror = (e) => {
+      console.error('ASR error', e);
+      responseEl.textContent = 'Recognition error: ' + (e.error || e.message);
+    };
+
+    recognizer.onresult = (evt) => {
+      let interim = '';
+      let finalTranscript = '';
+      for (let i = 0; i < evt.results.length; i++){
+        const res = evt.results[i];
+        if (res.isFinal) finalTranscript += res[0].transcript + ' ';
+        else interim += res[0].transcript + ' ';
+      }
+      transcriptEl.value = (finalTranscript + interim).trim();
+    };
+
+    startBtn.addEventListener('click', () => {
+      try {
+        recognizer.start();
+        responseEl.textContent = 'Listening (client-side)...';
+      } catch (err) { console.warn(err); }
+    });
+
+    stopBtn.addEventListener('click', () => {
+      recognizer.stop();
+      responseEl.textContent = 'Stopped.';
+    });
+  } else {
+    // Provide fallback behaviour when Web Speech API not available
+    startBtn.addEventListener('click', () => {
+      responseEl.textContent = 'Client ASR not supported in this browser. Use "Send to Server" for server-side recognition.';
+    });
+  }
+
+  // Send transcript to server for processing (expects JSON response)
+  sendServerBtn.addEventListener('click', async () => {
+    const text = transcriptEl.value.trim();
+    if (!text) {
+      responseEl.textContent = 'No transcript to send. Please speak or enter text.';
+      return;
+    }
+    responseEl.textContent = 'Sending to server...';
+    try {
+      const res = await fetch('/recognize', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ text })
+      });
+      if (!res.ok) {
+        const errorText = await res.text();
+        throw new Error(errorText || 'Server returned error');
+      }
+      const j = await res.json();
+      // expected: { success: true, transcript: "...", reply: "...", audio_url?: "..." }
+      if (j.transcript) transcriptEl.value = j.transcript;
+      if (j.reply) {
+        responseEl.textContent = j.reply;
+        if (j.audio_url) {
+          // try play returned audio
+          const audio = new Audio(j.audio_url);
+          audio.play().catch(()=>{ /* ignore autoplay failure */ });
+        }
+      } else {
+        responseEl.textContent = 'Server processed successfully.';
+      }
+    } catch (err) {
+      console.error(err);
+      responseEl.textContent = 'Server error: ' + (err.message || err);
+    }
+  });
+
+  clearBtn.addEventListener('click', () => {
+    transcriptEl.value = '';
+    responseEl.textContent = 'Cleared';
+  });
+  </script>
+</body>
+</html>
+
+
